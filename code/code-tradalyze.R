@@ -76,7 +76,7 @@ dl_baci(
 # Download Gravity latest gravity data available
 dl_gravity(
   dl_folder = here("data", "Gravity"),
-  dl_zip = FALSE
+  dl_zip = TRUE # bug: Seems that FALSE doesn't work if data are not already dl... 
 )
 
 
