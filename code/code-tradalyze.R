@@ -1,32 +1,60 @@
 # Goal : make a competitive analysis on beer and wine for 2015 to 2020 years
 
 # Setup the analysis --------------------------------------------------------
-# Librabries to be used
-# tidyverse
+## Install packages if needed -----------------------------------------------
+# Needed to use all the tidyverse syntaxe
+if (!rlang::is_installed("tidyverse")){
+  install.packages("tidyverse")
+}
+
+# Needed to set path easily
+if (!rlang::is_installed("here")){
+  install.packages("here")
+}
+
+# Needed to download packages from github
+if (!rlang::is_installed("devtools")){
+  install.packages("devtools")
+}
+
+# Neede to manipulate data with parquet format and not in memory
+if (!rlang::is_installed("arrow")){
+  install.packages("arrow")
+}
+
+# Install the dev version of concordance to have access of the latest
+# Revision of the HS classification
+# Check if package 'concordance' is not installed with a minimum version of 2.1.0
+if (!rlang::is_installed("concordance", version = "2.1.0")){
+  # Check if a latest version of concordance is installed
+  if (rlang::is_installed("concordance")){
+    # If its the case remove it
+    remove.packages("concordance")
+  }
+  # Install the package from github
+  devtools::install_github("insongkim/concordance")
+}
+
+# Install the package tradalyze (need to take 'refonte_totale' branch for the moment)
+# Make sure to have download this pecific branch of the package
+devtools::install_github("Xayoux/tradalyze", ref = "refonte_totale")
+
+
+## Load all the libraries needed --------------------------------------------
 library(tidyverse)
-
-# here
 library(here)
-
-# devtools
-
-library(devtools)
-
-# arrow
-
 library(arrow)
-
-
-# Download the tradalyze package from the right branch
-
-# Use the tradalyze package
+library(concordance)
 library(tradalyze)
 
-library(concordance)
 
-# Create sub-folders
+
+## Create sub-folders -------------------------------------------------------
+# Subfolder for BACI data
 dir.create(here("data", "BACI"), recursive = TRUE)
+# Subfolder for Gravity data
 dir.create(here("data", "Gravity"), recursive = TRUE)
+# Subfolder for the output
 dir.create(here("output"), recursive = TRUE)
 
 
@@ -285,6 +313,7 @@ df_khandelwal_eq <-
 
 
 ## Perform the khandelwal equation ------------------------------------------
+# Use all data to perform the regression (no matter their classification)
 df_quality <-
   khandelwal_quality_eq(
     data_reg = df_khandelwal_eq,
@@ -295,16 +324,21 @@ df_quality <-
     return_output = TRUE
   )
 
+# Print the result of regression
 print(df_quality$lm)
 
+# Print the data used for the regression and the output 
 print(df_quality$data_reg)
 
+# Save the data output
 df_quality$data_reg |>
   group_by(t) |>
   write_dataset(here("output", "processed-data", "quality-data"))
 
 ## Aggregate and display the quality ---------------------------------------
 df_quality$data_reg |>
+  # Reperform the flow classification (not optimal can do better I guess)
+  # Need to redo this because regression had been performed with raw data
   flow_classification(
     method = "fontagne_1997",
     alpha_H = 1.15, # Treshold
@@ -378,7 +412,7 @@ df_quality$data_reg |>
     return_arrow = FALSE
   ) |>
   print() |>
-  # Graph
+  # Graph of quality evolution
   graph_bar_comp_year(
     x = "exporter_name_region",
     y = "quality",
@@ -404,12 +438,4 @@ df_quality$data_reg |>
   theme(
     legend.position = "none"
   )
-
-
-
-
-
-
-
-
 
