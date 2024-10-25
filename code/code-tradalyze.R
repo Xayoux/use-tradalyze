@@ -3,35 +3,26 @@
 # Setup the analysis --------------------------------------------------------
 # Librabries to be used
 # tidyverse
-if (!requireNamespace("tidyverse", quietly = TRUE)) {
-  install.packages("tidyverse")
-}
 library(tidyverse)
 
 # here
-if (!requireNamespace("here", quietly = TRUE)) {
-  install.packages("here")
-}
 library(here)
 
 # devtools
-if (!requireNamespace("devtools", quietly = TRUE)) {
-  install.packages("devtools")
-}
+
 library(devtools)
 
 # arrow
-if (!requireNamespace("arrow", quietly = TRUE)) {
-  install.packages("arrow")
-}
+
 library(arrow)
 
 
 # Download the tradalyze package from the right branch
-devtools::install_github("Xayoux/tradalyze", ref = "refonte_totale")
 
 # Use the tradalyze package
 library(tradalyze)
+
+library(concordance)
 
 # Create sub-folders
 dir.create(here("data", "BACI"), recursive = TRUE)
@@ -74,19 +65,20 @@ df_products <-
 
 # Prepare BACI data ----------------------------------------------------------
 # Clean outliers
-df_baci <- clean_uv_outliers(
-  baci = here("data", "BACI", "BACI_HS92_V202401b-parquet"), # Parquet folder
-  years = 2015:2020, # Keep only wanted years
-  codes = df_products$code_HS0, # Keep only wanted products
-  method = "sd", # Remove observation greater than x standard deviations,
-  alpha_H = 3, # x = 3
-  alpha_L = 3,
-  outliers.rm = TRUE,
-  rm_temp_var = TRUE,
-  return_output = TRUE,
-  return_arrow = TRUE,
-  path_output = NULL
-)  |>
+df_baci <-
+  clean_uv_outliers(
+    baci = here("data", "BACI", "BACI_HS92_V202401b-parquet"), # Parquet folder
+    years = 2015:2020, # Keep only wanted years
+    codes = df_products$code_HS0, # Keep only wanted products
+    method = "sd", # Remove observation greater than x standard deviations,
+    alpha_H = 3, # x = 3
+    alpha_L = 3,
+    outliers.rm = TRUE,
+    rm_temp_var = TRUE,
+    return_output = TRUE,
+    return_arrow = TRUE,
+    path_output = NULL
+  )  |>
   # Compute fontagne_1997 flow classification
   # Don't need to indicate baci or years or code because of the pipe (|>)
   flow_classification(
@@ -291,6 +283,7 @@ df_khandelwal_eq <-
   ) |>
   print()
 
+
 ## Perform the khandelwal equation ------------------------------------------
 df_quality <-
   khandelwal_quality_eq(
@@ -312,8 +305,62 @@ df_quality$data_reg |>
 
 ## Aggregate and display the quality ---------------------------------------
 df_quality$data_reg |>
+  flow_classification(
+    method = "fontagne_1997",
+    alpha_H = 1.15, # Treshold
+    alpha_L = 1.15,
+    var_weighting = "q", # Weight by quantities
+    return_output = TRUE,
+    return_arrow = TRUE,
+    path_output = NULL
+  ) |>
   # Aggregate only for high end flows
   filter(fontagne_1997 == "H") |>
+  mutate(
+    sector = substr(k, 1, 4), # Extract the 4 first digits
+    sector =
+      case_when(
+        sector == "2203" ~ "Beer",
+        sector == "2204" ~ "Wine"
+      )
+  ) |>
+  # Add chelem geographic classification
+  add_chelem_classification(
+    return_output = TRUE,
+    return_arrow = FALSE,
+    path_output = NULL
+  ) |>
+  # Isolate FRA, ITA and CHN as regions and reduce the number of regions
+  mutate(
+    exporter_name_region =
+      case_when(
+        exporter == "FRA" ~ "France",
+        exporter == "ITA" ~ "Italy",
+        exporter == "CHN" ~ "China",
+        exporter_name_region %in% c("Others in Europe", "European Union") ~ "Europe",
+        exporter_name_region %in% c("South Asia and Pacific", "South-East Asia",
+                                    "North-East Asia") ~ "Asia",
+        exporter_name_region %in% c("North Africa", "Sub-Sahara Africa") ~ "Africa",
+        exporter_name_region %in% c("South America, central America and Caribbean",
+                                    "North America") ~ "America",        
+        .default = "RoW"
+      ),
+    importer_name_region =
+      case_when(
+        importer == "FRA" ~ "France",
+        importer == "ITA" ~ "Italy",
+        importer == "CHN" ~ "China",
+        importer_name_region %in% c("Others in Europe", "European Union") ~ "Europe",
+        importer_name_region %in% c("South Asia and Pacific", "South-East Asia",
+                                    "North-East Asia") ~ "Asia",
+        importer_name_region %in% c("North Africa", "Sub-Sahara Africa") ~ "Africa",
+        importer_name_region %in% c("South America, central America and Caribbean",
+                                    "North America") ~ "America",        
+        .default = "RoW"
+      )
+  ) |>
+  # Remove iso code for regions
+  select(!c(exporter_iso_region, importer_iso_region)) |>
   aggregate_compare(
     method = "weighted_median",
     var = "quality",
