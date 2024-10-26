@@ -16,6 +16,8 @@ Le package `renv` n'a pas été utilisé dans cet exemple afin de montrer commen
 
 Le code va tester et télécharger les packages si besoin il y a de les télécharger.
 
+Le package `tradalyze` utilise certains packages spécifiques dans certaines situations particulières. Ces packages ne sont donc pas automatiquement installés avec l'installation de `tradalyze` (sauf si le paramètre `dependencies = TRUE`). Dans ce cas, si les fonctions du package en ont besoin, il sera demandé à l'utilisateur s'il veut télécharger ces packages ou non (dans la console).
+
 Il est possible que l'absence de Rtools pose quelques problèmes. Si jamais c'est le cas, il suffit de télécharger la version [4.4](https://cran.r-project.org/bin/windows/Rtools/) de Rtools et de l'installer.
 
 Si jamais le package `rlang` n'est pas déjà téléchargé et qu'une erreur se produit lors de la vérification de l'installation des packages, il suffit de le télécharger avec la commande `install.packages("rlang")`.

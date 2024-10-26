@@ -37,7 +37,8 @@ if (!rlang::is_installed("concordance", version = "2.1.0")){
 
 # Install the package tradalyze (need to take 'refonte_totale' branch for the moment)
 # Make sure to have download this pecific branch of the package
-devtools::install_github("Xayoux/tradalyze", ref = "refonte_totale")
+# `dependencies = TRUE` in order to install all the packages used by tradalyze even those in Suggest
+devtools::install_github("Xayoux/tradalyze", ref = "refonte_totale", dependencies = TRUE)
 
 
 ## Load all the libraries needed --------------------------------------------
