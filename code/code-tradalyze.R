@@ -57,6 +57,8 @@ dir.create(here("data", "BACI"), recursive = TRUE)
 dir.create(here("data", "Gravity"), recursive = TRUE)
 # Subfolder for the output
 dir.create(here("output"), recursive = TRUE)
+# subfolder for output graphs
+dir.create(here("output", "graphs"), recursive = TRUE)
 
 
 # Download data -------------------------------------------------------------
@@ -202,12 +204,13 @@ graph_market_share(
   type_theme = "bw",
   var_facet = "sector",
   print = TRUE,
-  return_output = FALSE
+  return_output = FALSE,
+  path_output = here("output", "graphs", "01-graph-market-share.png")
 )
 
 
 # Adressed demand -----------------------------------------------------------
-# Compute the adressed demand
+# Compute the adressed demand : compared to France ; with Base 100 in 2015
 df_adressed_demand <-
   adressed_demand(
     baci = df_baci,
@@ -225,14 +228,15 @@ df_adressed_demand <-
   print()
 
 # Graph
-graph_lines_comparison(
+g_adressed_demand <-
+  graph_lines_comparison(
   baci = df_adressed_demand,
   x = "t",
   y = "DA_100_diff",
   var_color = "exporter_name_region",
   palette_color = "Paired",
   x_title = "years",
-  y_title = "DA ration with France",
+  y_title = "DA ratio with France",
   title = "Comparison of the evolution of the DA with France",
   type_theme = "bw",
   var_facet = "sector",
@@ -242,26 +246,40 @@ graph_lines_comparison(
   # Line at 1
   geom_hline(yintercept = 1, linetype = "dashed")
 
+g_adressed_demand
+
+ggsave(
+  here(
+    "output",
+    "graphs",
+    "02-graph-adressed-demand.png"
+  ),
+  g_adressed_demand,
+  width = 15,
+  height = 8
+)
+
 
 # Evolutions of unit values for regions and sectors --------------------------
 # Aggregate unit values by regions and sectors
-aggregate_compare(
-  baci = df_baci,
-  method = "weighted_median",
-  var = "uv",
-  var_aggregation = c("t", "sector", "exporter_name_region"),
-  var_temporal = "t",
-  var_weight = "q",
-  fixed_weight = FALSE, # Floating weights
-  year_ref_fixed_weight = NULL, # Floating weights
-  base_100 = TRUE, # Compute the base 100
-  year_ref_base_100 = 2015,
-  compare = TRUE, # Compare base 100 with a reference country,
-  var_exporter = "exporter_name_region",
-  exporter_ref = "France",
-  return_output = TRUE,
-  return_arrow = FALSE
-) |>
+g_unit_value <-
+  aggregate_compare(
+    baci = df_baci,
+    method = "weighted_median",
+    var = "uv",
+    var_aggregation = c("t", "sector", "exporter_name_region"),
+    var_temporal = "t",
+    var_weight = "q",
+    fixed_weight = FALSE, # Floating weights
+    year_ref_fixed_weight = NULL, # Floating weights
+    base_100 = TRUE, # Compute the base 100
+    year_ref_base_100 = 2015,
+    compare = TRUE, # Compare base 100 with a reference country,
+    var_exporter = "exporter_name_region",
+    exporter_ref = "France",
+    return_output = TRUE,
+    return_arrow = FALSE
+  ) |>
   print() |>
   # Graph
   graph_bar_comp_year(
@@ -289,6 +307,19 @@ aggregate_compare(
   theme(
     legend.position = "none"
   )
+
+g_unit_value
+
+ggsave(
+  here(
+    "output",
+    "graphs",
+    "03-graph-unit-value.png"
+  ),
+  g_unit_value,
+  width = 15,
+  height = 8
+)
 
 
 # Quality -------------------------------------------------------------------
@@ -337,7 +368,8 @@ df_quality$data_reg |>
   write_dataset(here("output", "processed-data", "quality-data"))
 
 ## Aggregate and display the quality ---------------------------------------
-df_quality$data_reg |>
+g_quality <-
+  df_quality$data_reg |>
   # Reperform the flow classification (not optimal can do better I guess)
   # Need to redo this because regression had been performed with raw data
   flow_classification(
@@ -440,3 +472,15 @@ df_quality$data_reg |>
     legend.position = "none"
   )
 
+g_quality
+
+ggsave(
+  here(
+    "output",
+    "graphs",
+    "04-graph-quality.png"
+  ),
+  g_quality,
+  width = 15,
+  height = 8
+)
