@@ -17,9 +17,24 @@ if (!rlang::is_installed("devtools")){
   install.packages("devtools")
 }
 
-# Neede to manipulate data with parquet format and not in memory
+# Needed to manipulate data with parquet format and not in memory
 if (!rlang::is_installed("arrow")){
   install.packages("arrow")
+}
+
+# Needed to manipulate label axis with ggplot2 for some graphs
+if (!rlang::is_installed("scales")){
+  install.packages("scales")
+}
+
+# Needed to clean dataframe name easily
+if (!rlang::is_installed("janitor")){
+  install.packages("janitor")
+}
+
+# Needed to create LATEX table
+if (!rlang::is_installed("xtable")){
+  install.packages("xtable")
 }
 
 # Install the dev version of concordance to have access of the latest
@@ -47,6 +62,9 @@ library(here)
 library(arrow)
 library(concordance)
 library(tradalyze)
+library(scales)
+library(janitor)
+library(xtable)
 
 
 
@@ -59,7 +77,8 @@ dir.create(here("data", "Gravity"), recursive = TRUE)
 dir.create(here("output"), recursive = TRUE)
 # subfolder for output graphs
 dir.create(here("output", "graphs"), recursive = TRUE)
-
+# subfolder for output latex table
+dir.create(here("output", "tables"), recursive = TRUE)
 
 # Download data -------------------------------------------------------------
 ## BACI data ----------------------------------------------------------------
@@ -177,6 +196,133 @@ df_baci |>
   write_dataset(here("output", "processed-data", "BACI-processed"))
 
 
+# World Trade evolution -----------------------------------------------------
+# Graph to show the evolution of the world trade
+g_world_trade <-
+  df_baci |>
+  # Compute the sum of exports for each year and product
+  summarize(
+    .by = c(t, sector),
+    v = sum(v, na.rm = TRUE)
+  ) |>
+  collect() |>
+  # Create the ggplot2 graph
+  ggplot(aes(x = t, y = v)) +
+  geom_line() +
+  labs(
+    x = "Années",
+    y = "Valeur commerciale en milliers de dollars courants"
+  ) +
+  scale_x_continuous(breaks = seq(2015,2020, 1)) +
+  scale_y_continuous(labels = label_dollar())+
+  facet_wrap(~sector, scales = "free") +
+  theme_bw() +
+  ggplot2::theme(
+    # Option des gridlines : les enlever
+    panel.grid.minor = ggplot2::element_blank(),
+    panel.grid.major = ggplot2::element_blank(),
+    # Option du texte de l'axe des X
+    axis.text.x =
+      ggplot2::element_text(
+        angle = 45,
+        hjust = 1,
+        size = 18,
+        color = "black"
+      ),
+    axis.title.x =
+      ggplot2::element_text(
+        size = 22,
+        vjust = -0.5
+      ),
+    # Option du texte de l'axe des Y
+    axis.text.y =
+      ggplot2::element_text(
+        size = 18,
+        color = "black"
+      ),
+    axis.title.y =
+      ggplot2::element_text(
+        size = 22
+      ),
+    # Options des facettes
+    strip.background =
+      ggplot2::element_rect(
+        colour = "black",
+        fill = "#D9D9D9"
+      ),
+    strip.text =
+      ggplot2::element_text(
+        size = 18,
+        color = "black"
+      )
+  )
+
+g_world_trade
+
+ggsave(here("output", "graphs", "commerce-mondial-HG.png"),
+       graph, width = 15, height = 8)
+
+
+# Taux de couverture de la France --------------------------------------------
+# Calculer le total des exportations de chaque région
+df_total_export <-
+  df_baci |>
+  summarize(
+    .by = c(t, sector, exporter_name_region),
+    total_export = sum(v, na.rm = TRUE)
+  ) |>
+  collect()
+
+
+# Calculer le total des importations de chaque région
+df_total_import <-
+  df_baci |>
+  collect() |>
+  summarize(
+    .by = c(t, sector, importer_name_region),
+    total_import = sum(v, na.rm = TRUE)
+  ) 
+
+
+# Calculer le taux de couverture du haut de gamme
+df_tx_couverture <-
+  df_total_export |>
+  left_join(
+    df_total_import,
+    join_by(t, sector, exporter_name_region == importer_name_region)
+  )  |>
+  mutate(
+    tx_couverture = total_export / total_import
+  )  |>
+  arrange(desc(t), sector, exporter_name_region)
+
+# Enregistrer les données 
+write_csv(df_tx_couverture, here("output", "processed-data", "taux-couverture-HG.csv"))
+
+
+g_tx_couverture <-
+  df_tx_couverture |>
+  filter(exporter_name_region == "France") |>
+  graph_lines_comparison(
+    x = "t",
+    y = "tx_couverture",
+    var_color = "sector",
+    palette_color = "Paired",
+    x_title = "Années",
+    y_title = "Taux de couverture",
+    title = "Evolution du taux de couverture français",
+    print = FALSE
+  )+
+  geom_hline(
+    yintercept = 1, color = "black"
+  )
+
+g_tx_couverture
+
+ggsave(here("output", ,"graphs" "tx-couverture-HG-france.png"),
+       graph, width = 15, height = 8)
+
+
 # Exporter's market shares ---------------------------------------------------
 # Market share by time, regions and sectors of v and q
 df_market_share <-
@@ -206,6 +352,166 @@ graph_market_share(
   print = TRUE,
   return_output = FALSE,
   path_output = here("output", "graphs", "01-graph-market-share.png")
+)
+
+
+# Nb market reach by countries ---------------------------------------------
+# Df with the number of product by sectors
+# Needed to compute the total number of possible market (nb_produt * nb_countries)
+df_nb_k_sector <-
+  df_baci |>
+  filter(t == 2020, exporter == "FRA") |>
+  select(sector, k) |>
+  distinct() |>
+  summarize(
+    .by = c(sector),
+    nb_k = n()
+  ) |>
+  collect()
+
+# Total number of countries
+nb_countries <-
+  df_baci  |>
+  filter(t == 2020) |>
+  collect() |>
+  pull(exporter) |>
+  unique() |>
+  length()
+
+# Nb of market reach by countries
+df_nb_market <-
+  df_baci |>
+  summarize(
+    .by = c(t, exporter, sector),
+    nb_market = n()
+  ) |>
+  collect() |>
+  arrange(desc(t), sector, desc(nb_market)) |>
+  # compute the %
+  left_join(
+    df_nb_k_sector,
+    join_by(sector)
+  ) |>
+  # Remove 1 countries to avoid the exporting country in the computation
+  mutate(
+    share_nb_market = nb_market / (nb_k * (nb_countries - 1)) * 100
+  )
+
+write_csv(df_nb_market, here("output","processed-data", "nb-market.csv"))
+
+
+# Nb moyen de produits envoyés par pays dans chaque secteur
+df_nb_mean_k <-
+  df_baci |>
+  # Compter le nombre de produits envoys dans chaque pays par secteur
+  summarize(
+    .by = c(t, sector, exporter, importer),
+    nb_produits = n()
+  )  |>
+  collect() |>
+  # Moyenne du nombre de produits envoyés
+  summarize(
+    .by = c(t, sector, exporter),
+    mean_k = mean(nb_produits, na.rm = TRUE)
+  ) |>
+  # Trier
+  arrange(desc(t), sector, desc(mean_k)) |>
+  # Garder uniquement 2010 et 2022
+  filter(t %in% c(2015, 2020)) |>
+  # Mettre les années en colonne : meilleure présentation
+  pivot_wider(
+    names_from = t,
+    values_from = mean_k
+  ) |>
+  clean_names()
+
+
+# Bar graph
+g_nb_market <-
+  df_nb_market |>
+  filter(exporter %in% c("FRA", "ITA", "CHN"))  |>
+  graph_bar_comp_year(
+    x = "exporter",
+    y = "share_nb_market",
+    double_bar = FALSE,
+    var_t = "t",
+    year_1 = 2020,
+    year_2 = 2015,
+    color_1 = "black",
+    color_2 = "black",
+    var_fill = "exporter",
+    palette_fill = "Paired",
+    var_fill_shape = "exporter",
+    x_title = "Exporter",
+    y_title = "Nombre de marchés où le pays est présent (%)",
+    title = "Evolution du nombre de marché entre 2015 et 2020",
+    caption = "Data from BACI",
+    type_theme = "bw",
+    var_facet = "sector",
+    print = FALSE,
+    return_output = TRUE
+  ) +
+  scale_x_discrete(labels = c("FRA" = "France", "ITA" = "Italie", "CHN" = "Chine")) +
+  scale_y_continuous(labels = label_percent(scale = 1))+
+  theme(legend.position = "none")
+
+g_nb_market
+
+ggsave(
+  here("output", "graphs", "nb_market.png"),
+  g_nb_market,
+  width = 15,
+  height = 8
+)
+
+
+# Table du nombre de produits moyen exportés par pays par secteur
+table <-
+  df_nb_mean_k |>
+  # Garder que les pays d'intérets de l'étude : FRA et concurrents
+  filter(exporter %in% c("FRA", "ITA", "CHN")) |>
+  # Organiser la table
+  relocate(sector, exporter, x2015) |>
+  # Renommer les pays avec leur nom complet
+  mutate(
+    exporter =
+      case_when(
+        exporter == "FRA" ~ "France",
+        exporter == "ITA" ~ "Italie",
+        exporter == "CHN" ~ "Chine"
+      )
+  ) |>
+  # Trier pour aficher les secteurs ensemble
+  arrange(sector, desc(x2020)) |>
+  # Garder uniquement la valeur au milieu pour le nom du secteur
+  # Meilleure présentation
+  mutate(
+    .by = sector,
+    num = row_number(),
+    sector =
+      case_when(
+        num != 2 ~ "",
+        .default = sector
+      )
+  ) |>
+  select(-num) %>%
+  # passer en table latex
+  {
+    nb_lignes <- nrow(.) # Sert pour mettre la dernière hline
+    xtable(.) %>%
+      print.xtable(
+        type             = "latex",
+        include.rownames = FALSE,
+        include.colnames = FALSE,
+        only.contents    = TRUE,
+        hline.after      = seq(3, nb_lignes - 1, 3)
+      )
+  }
+
+# Supprimer les derniers \\
+writeLines(
+  substr(table, 1, nchar(table)-7), 
+  here("output", "tables", "table-nb-mean-product-export.tex")
 )
 
 
@@ -484,3 +790,9 @@ ggsave(
   width = 15,
   height = 8
 )
+
+
+
+
+
+
