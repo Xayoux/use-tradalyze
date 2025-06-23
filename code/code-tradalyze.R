@@ -117,7 +117,7 @@ df_products <-
 # Clean outliers
 df_baci <-
   clean_uv_outliers(
-    baci = here("data", "BACI", "BACI_HS92_V202401b-parquet"), # Parquet folder
+    baci = here("data", "BACI", "BACI_HS92_V202501-parquet"), # Parquet folder
     years = 2015:2020, # Keep only wanted years
     codes = df_products$code_HS0, # Keep only wanted products
     method = "sd", # Remove observation greater than x standard deviations,
@@ -260,7 +260,7 @@ g_world_trade <-
 g_world_trade
 
 ggsave(here("output", "graphs", "commerce-mondial-HG.png"),
-       graph, width = 15, height = 8)
+       g_world_trade, width = 15, height = 8)
 
 
 # Taux de couverture de la France --------------------------------------------
@@ -320,7 +320,7 @@ g_tx_couverture <-
 g_tx_couverture
 
 ggsave(here("output", ,"graphs" "tx-couverture-HG-france.png"),
-       graph, width = 15, height = 8)
+       g_tx_couverture, width = 15, height = 8)
 
 
 # Exporter's market shares ---------------------------------------------------
@@ -632,7 +632,7 @@ ggsave(
 ## Create the dataframe for the khandelwal equation -------------------------
 df_khandelwal_eq <-
   create_quality_df(
-    baci =  here("data", "BACI", "BACI_HS92_V202401b-parquet"),
+    baci =  here("data", "BACI", "BACI_HS92_V202501-parquet"),
     gravity = here("data", "Gravity", "Gravity_csv_V202211", "Gravity-parquet"),
     years = 2015:2020,
     codes = df_products$code_HS0,
