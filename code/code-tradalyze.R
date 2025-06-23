@@ -53,7 +53,7 @@ if (!rlang::is_installed("concordance", version = "2.1.0")){
 # Install the package tradalyze (need to take 'refonte_totale' branch for the moment)
 # Make sure to have download this pecific branch of the package
 # `dependencies = TRUE` in order to install all the packages used by tradalyze even those in Suggest
-devtools::install_github("Xayoux/tradalyze", ref = "refonte_totale", dependencies = TRUE)
+devtools::install_github("Xayoux/tradalyze", dependencies = TRUE)
 
 
 ## Load all the libraries needed --------------------------------------------
@@ -96,6 +96,7 @@ dl_baci(
 
 ## Gravity data -------------------------------------------------------------
 # Download Gravity latest gravity data available
+# If not working the first time just relaunch the command it work... IDK why...
 dl_gravity(
   dl_folder = here("data", "Gravity"),
   dl_zip = TRUE # bug: Seems that FALSE doesn't work if data are not already dl... 
@@ -319,7 +320,7 @@ g_tx_couverture <-
 
 g_tx_couverture
 
-ggsave(here("output", ,"graphs" "tx-couverture-HG-france.png"),
+ggsave(here("output","graphs", "tx-couverture-HG-france.png"),
        g_tx_couverture, width = 15, height = 8)
 
 
